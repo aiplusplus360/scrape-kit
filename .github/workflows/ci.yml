@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Byte-compile every module
+        run: python -m compileall -q scrapekit tests examples
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Doctest the package docstring
+        run: python -c "import doctest, scrapekit; r = doctest.testmod(scrapekit); assert r.failed == 0, r"
+      - name: Policy demo runs offline
+        run: python examples/policy_demo.py
+      - name: Install
+        run: python -m pip install --quiet .
+      - name: CLI smoke test
+        run: python -m scrapekit robots tests/fixtures/robots.txt --path /docs/private --product testbot
+      - name: CLI blocks disallowed path
+        shell: bash
+        run: |
+          set -e
+          out=$(python -m scrapekit robots tests/fixtures/robots.txt --path /docs/private --product testbot)
+          echo "$out"
+          echo "$out" | grep -q '"allowed": false'

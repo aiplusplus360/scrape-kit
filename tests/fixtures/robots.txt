@@ -1,0 +1,17 @@
+# Fixture used by the test suite and the CI smoke test.
+#
+# The interesting part is that "Allow: /docs" (5 characters) beats
+# "Disallow: /" (1 character) for the wildcard group, while the named
+# "testbot" group is selected instead of the wildcard for that product token.
+
+User-agent: *
+Disallow: /
+Allow: /docs
+Crawl-delay: 1
+
+User-agent: testbot
+Disallow: /docs/private
+Allow: /docs/private/faq
+Crawl-delay: 0.5
+
+Sitemap: https://example.com/sitemap.xml
