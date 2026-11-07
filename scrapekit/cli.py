@@ -56,9 +56,28 @@ def _load_robots(target: str, ua: str, timeout: float) -> Robots:
     return cache.get(target)
 
 
+def _url_path(value: str) -> str:
+    """Normalise a user-supplied robots path, and reject a filesystem path.
+
+    ``/docs`` is a URL path; ``C:/Users/me/docs`` is a shell accident, and
+    answering "allowed" for a path it was never asked about is worse than
+    failing. Git Bash on Windows performs exactly that rewrite when a bare
+    ``/docs`` is passed as an argument.
+    """
+    if not value:
+        return "/"
+    if "\\" in value or ":" in value:
+        raise ValueError(
+            f"expected a URL path like /docs/private, got a filesystem path: {value!r}"
+        )
+    return value if value.startswith("/") else "/" + value
+
+
 def cmd_robots(args: argparse.Namespace) -> int:
     robots = _load_robots(args.target, args.user_agent, args.timeout)
-    path = args.path or (_path_of(args.target) if "://" in args.target else "/")
+    path = _url_path(args.path) if args.path else (
+        _path_of(args.target) if "://" in args.target else "/"
+    )
     verdict = {
         "path": path,
         "allowed": robots.allowed(path, args.product or args.user_agent),
@@ -130,6 +149,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"error: no such file: {exc.filename}", file=sys.stderr)
         return 2
     except (ConnectionError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

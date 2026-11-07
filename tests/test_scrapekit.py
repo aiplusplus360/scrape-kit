@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import io
+import json
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from scrapekit import (
     Fetcher,
@@ -19,6 +23,7 @@ from scrapekit import (
 from scrapekit.fetch import BLOCK_ALL
 
 UA = "scrapekit/1.0"
+FIXTURE = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "robots.txt"
 
 
 class FakeClock:
@@ -423,6 +428,49 @@ class FetcherTests(unittest.TestCase):
         result = fetcher.get("https://e.test/post?reply=1")
         self.assertTrue(result.blocked)
         self.assertEqual(transport.hits("https://e.test/post?reply=1"), 0)
+
+
+class CliTests(unittest.TestCase):
+    """The CLI is where a shell can quietly change the question being asked."""
+
+    def run_cli(self, *argv):
+        from scrapekit.cli import main
+
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_path_is_normalised_without_a_leading_slash(self):
+        code, out, _ = self.run_cli(
+            "robots", str(FIXTURE), "--path", "docs/private", "--product", "testbot"
+        )
+        self.assertEqual(code, 0)
+        payload = json.loads(out)
+        self.assertEqual(payload["path"], "/docs/private")
+        self.assertFalse(payload["allowed"])
+
+    def test_filesystem_path_is_rejected_instead_of_answered(self):
+        # This is the failure that made Git Bash on Windows report "allowed"
+        # for a URL path nobody asked about: the shell rewrote /docs/private
+        # into C:/Program Files/Git/docs/private before Python saw it.
+        code, _, err = self.run_cli(
+            "robots", str(FIXTURE), "--path", "C:/Program Files/Git/docs/private"
+        )
+        self.assertEqual(code, 2)
+        self.assertIn("filesystem path", err)
+
+    def test_backslash_path_is_rejected(self):
+        code, _, err = self.run_cli("robots", str(FIXTURE), "--path", "\\docs\\private")
+        self.assertEqual(code, 2)
+        self.assertIn("filesystem path", err)
+
+    def test_allowed_path_is_reported(self):
+        code, out, _ = self.run_cli(
+            "robots", str(FIXTURE), "--path", "/docs/public", "--product", "testbot"
+        )
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(out)["allowed"])
 
 
 if __name__ == "__main__":

@@ -202,7 +202,7 @@ Each module is independent. `Robots` has no idea a network exists; `Throttle` ha
 python -m unittest discover -s tests -v
 ```
 
-45 tests, no network, no dependencies, no flakiness, including the exact timestamp arithmetic for `Retry-After` HTTP dates and the jitter bound.
+49 tests, no network, no dependencies, no flakiness, including the exact timestamp arithmetic for `Retry-After` HTTP dates, the jitter bound, and the CLI refusing a filesystem path where a URL path was expected.
 
 ---
 

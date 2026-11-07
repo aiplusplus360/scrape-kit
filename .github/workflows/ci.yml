@@ -32,6 +32,11 @@ jobs:
         run: python -m scrapekit robots tests/fixtures/robots.txt --path /docs/private --product testbot
       - name: CLI blocks disallowed path
         shell: bash
+        # Git Bash on Windows rewrites a bare "/docs/private" into a Windows
+        # path before Python sees it, so the CLI would be asked about
+        # C:/Program Files/Git/docs/private and answer "allowed" honestly.
+        env:
+          MSYS_NO_PATHCONV: "1"
         run: |
           set -e
           out=$(python -m scrapekit robots tests/fixtures/robots.txt --path /docs/private --product testbot)
